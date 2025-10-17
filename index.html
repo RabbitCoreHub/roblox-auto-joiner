@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Auto-Joiner Мониторинг</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    
+    <div class="container mx-auto px-4 py-8">
+        <div class="mb-8 text-center">
+            <h1 class="text-4xl font-bold gradient-bg bg-clip-text text-transparent mb-2">
+                Roblox Auto-Joiner Мониторинг Сучка
+            </h1>
+            <p class="text-gray-400">Система мониторинга Discord каналов и очереди серверов</p>
+        </div>
+
+        <div class="glass-morphism rounded-xl p-6 mb-8">
+            <h3 class="text-xl font-semibold mb-4">Discord Bot и Joiner Сучки</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="text-gray-400 text-sm">Статус бота</div>
+                    <div class="text-xl font-bold" id="bot-status">🔴 Offline, опять что-то сломалось</div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="text-gray-400 text-sm">Обработано серверов</div>
+                    <div class="text-xl font-bold" id="servers-processed">0</div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="text-gray-400 text-sm">Отправлено в API</div>
+                    <div class="text-xl font-bold" id="servers-sent">0</div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <div class="text-gray-400 text-sm">Уникальных серверов</div>
+                    <div class="text-xl font-bold" id="unique-servers">0</div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 rounded-lg p-4">
+                <h4 class="text-lg font-semibold mb-3">📊 Очередь серверов Brainrot</h4>
+                <div id="server-queue" class="space-y-2">
+                    <div class="text-gray-500 text-center py-4">Загрузка...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-morphism rounded-xl p-6">
+            <h3 class="text-xl font-semibold mb-4">📡 Системная информация пенисов</h3>
+            <div class="bg-gray-800 rounded-lg p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-gray-400 text-sm">Размер очереди, иди нахуй</div>
+                        <div class="text-xl font-bold" id="queue-size">0</div>
+                    </div>
+                    <div>
+                        <div class="text-gray-400 text-sm">WebSocket клиенты</div>
+                        <div class="text-xl font-bold" id="websocket-clients">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let apiUrl = '';
+
+        function determineApiUrl() {
+            const currentUrl = window.location.href;
+            const url = new URL(currentUrl);
+            apiUrl = `${url.protocol}//${url.hostname}`;
+            if (url.port && url.port !== '80' && url.port !== '443') {
+                apiUrl += `:${url.port}`;
+            }
+            return apiUrl;
+        }
+
+        async function loadDiscordStats() {
+            try {
+                const response = await fetch(`${apiUrl}/api/discord/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.stats;
+                    document.getElementById('bot-status').textContent = 
+                        stats.bot_connected ? '🟢 Online' : '🔴 Offline';
+                    document.getElementById('servers-processed').textContent = stats.servers_processed;
+                    document.getElementById('servers-sent').textContent = stats.servers_sent;
+                    document.getElementById('unique-servers').textContent = stats.unique_servers;
+                }
+            } catch (error) {
+                console.error('Error loading Discord stats:', error);
+            }
+        }
+
+        async function loadServerQueue() {
+            try {
+                const response = await fetch(`${apiUrl}/api/discord/queue`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const queueDiv = document.getElementById('server-queue');
+                    
+                    if (data.queue.length === 0) {
+                        queueDiv.innerHTML = '<div class="text-gray-500 text-center py-4">Очередь пуста</div>';
+                        return;
+                    }
+                    
+                    queueDiv.innerHTML = data.queue.map(server => {
+                        const timeRemaining = Math.max(0, server.time_remaining || 0);
+                        const progress = ((10 - timeRemaining) / 10) * 100;
+                        
+                        return `
+                            <div class="bg-gray-700 rounded-lg p-3">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div class="font-semibold">${server.name || 'Unknown'}</div>
+                                        <div class="text-sm text-gray-400">
+                                            💰 ${server.money || 0} | 👥 ${server.players || 0}
+                                            ${server.is_10m_plus ? ' | <span class="text-yellow-400">⭐ 10M+</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div class="text-sm text-gray-400">
+                                        🕐 ${Math.floor(timeRemaining)}s
+                                    </div>
+                                </div>
+                                <div class="w-full bg-gray-600 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" 
+                                         style="width: ${progress}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error loading server queue:', error);
+            }
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch(`${apiUrl}/api/status`);
+                const data = await response.json();
+                
+                document.getElementById('queue-size').textContent = data.queue_size || 0;
+                document.getElementById('websocket-clients').textContent = data.websocket_clients || 0;
+            } catch (error) {
+                console.error('Error loading system status:', error);
+            }
+        }
+
+        function startAutoRefresh() {
+            setInterval(() => {
+                loadDiscordStats();
+                loadServerQueue();
+                loadSystemStatus();
+            }, 2000);
+        }
+
+        determineApiUrl();
+        loadDiscordStats();
+        loadServerQueue();
+        loadSystemStatus();
+        startAutoRefresh();
+    </script>
+</body>
+</html>
